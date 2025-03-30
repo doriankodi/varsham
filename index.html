@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Варшам и друзья</title>
+    <style>
+        /* Общие стили */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: sans-serif; background-color: #f0f0f0; line-height: 1.6; }
+		
+		header {
+		background-image: url('https://img.freepik.com/premium-vector/army-military-camouflage-pattern-texture-flat-background_664528-403.jpg');
+		background-repeat: repeat;
+		}
+		
+		header h1 {
+		background-color: rgba(0, 0, 0, 0.55);
+		}
+
+        /* Стили для сетки галереи */
+        .gallery-grid { column-count: 5; column-gap: 15px; padding: 15px; max-width: 1400px; margin: 20px auto; }
+        .gallery-item { display: inline-block; width: 100%; margin-bottom: 15px; break-inside: avoid; overflow: hidden; border-radius: 8px; background-color: #fff; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .gallery-item:hover { transform: translateY(-5px); box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2); }
+        .gallery-item img { display: block; width: 100%; height: auto; cursor: pointer; transition: opacity 0.4s ease; opacity: 0; }
+        .gallery-item img.loaded { opacity: 1; }
+
+        /* Адаптивность колонок */
+        @media (max-width: 1200px) { .gallery-grid { column-count: 4; } }
+        @media (max-width: 992px) { .gallery-grid { column-count: 3; } }
+        @media (max-width: 768px) { .gallery-grid { column-count: 2; } }
+        @media (max-width: 576px) { .gallery-grid { column-count: 1; } }
+
+        /* --- Стили для модального окна --- */
+        .modal {
+            visibility: hidden; opacity: 0;
+            position: fixed; z-index: 1000;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            overflow: hidden; /* Предотвращает прокрутку фона */
+            display: flex;
+            align-items: center; /* Вертикальное центрирование */
+            justify-content: center; /* Горизонтальное центрирование */
+            padding: 30px; /* Увеличиваем отступ для высоких изображений */
+            transition: opacity 0.3s ease, visibility 0s linear 0.3s;
+        }
+        .modal.active {
+            visibility: visible; opacity: 1;
+            transition: opacity 0.3s ease, visibility 0s linear 0s;
+        }
+
+        /* Контейнер для изображения и навигации */
+        .modal-content {
+            position: relative;
+            max-width: 100%;
+            max-height: 100%;
+            line-height: 0;
+            display: flex; /* Добавляем flex для контейнера */
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Изображение в модальном окне */
+        #modalImage {
+            display: block;
+            max-width: 100%;
+            max-height: 100vh; /* Используем viewport height */
+            width: auto;
+            height: auto;
+            object-fit: contain; /* Сохраняет пропорции и показывает всё изображение */
+            transition: opacity 0.5s ease-in-out;
+            border-radius: 4px;
+            vertical-align: middle;
+        }
+
+        /* Кнопка закрытия */
+        .close-button { position: fixed; top: 10px; right: 10px; color: #fff; font-size: 40px; font-weight: bold; line-height: 1; cursor: pointer; transition: color 0.2s ease; z-index: 1010; text-shadow: 0 0 6px rgba(0,0,0,0.8); }
+        .close-button:hover, .close-button:focus { color: #bbb; text-decoration: none; }
+
+        /* Области для навигации */
+        .nav-area { position: absolute; top: 0; bottom: 0; width: 45%; cursor: pointer; z-index: 1005; display: flex; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.3s ease; }
+        .modal:hover .nav-area { opacity: 1; }
+        .nav-area.prev { left: 0; justify-content: flex-start; }
+        .nav-area.next { right: 0; justify-content: flex-end; }
+        .nav-area::after { content: ''; display: block; width: 25px; height: 25px; border-style: solid; border-color: white; border-width: 0 4px 4px 0; transform: rotate(-45deg); margin: 0 25px; filter: drop-shadow(0 0 3px rgba(0,0,0,0.5)); }
+        .nav-area.prev::after { transform: rotate(135deg); }
+
+        /* Прелоадер */
+         .loader { display: none; border: 5px solid #f3f3f3; border-top: 5px solid #555; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 50px auto; }
+         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <header style="text-align: center; padding: 20px; background-color: #333; color: white;"><h1>МОИ ДРУЗЬЯ</h1></header>
+    <div class="gallery-grid" id="galleryGrid"><div class="loader" id="gridLoader" style="display: block;"></div></div>
+    <div class="modal" id="imageModal">
+        <span class="close-button" id="closeModal">×</span>
+        <div class="modal-content">
+            <div class="nav-area prev" id="prevArea"></div>
+            <img id="modalImage" src="" alt="Увеличенное изображение">
+            <div class="nav-area next" id="nextArea"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- JavaScript без изменений ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const galleryGrid = document.getElementById('galleryGrid'); const modal = document.getElementById('imageModal'); const modalImage = document.getElementById('modalImage'); const closeModalBtn = document.getElementById('closeModal'); const prevArea = document.getElementById('prevArea'); const nextArea = document.getElementById('nextArea'); const gridLoader = document.getElementById('gridLoader'); const modalContent = modal.querySelector('.modal-content');
+            const imageBaseName = 'photo'; const imageCount = 99; const imageExtension = 'jpg'; const imageFolder = 'images'; const slideshowDelay = 5000;
+            let imageNames = []; let currentIndex = 0; let slideshowInterval = null;
+            if (!galleryGrid || !modal || !modalImage || !closeModalBtn || !prevArea || !nextArea || !gridLoader || !modalContent) { console.error("Ошибка: Элементы галереи не найдены!"); if(gridLoader) gridLoader.style.display = 'none'; return; }
+            function generateImageNames() { imageNames = []; for (let i = 1; i <= imageCount; i++) { imageNames.push(`${imageBaseName}${i}`); } }
+            function populateGallery() {
+                gridLoader.style.display = 'block'; while (galleryGrid.firstChild && galleryGrid.firstChild !== gridLoader) { galleryGrid.removeChild(galleryGrid.firstChild); } if (imageNames.length === 0) { console.warn("Нет имен изображений."); gridLoader.style.display = 'none'; galleryGrid.insertAdjacentHTML('beforeend', '<p>Нет изображений.</p>'); return; } let loadedImagesCount = 0; const totalImages = imageNames.length;
+                imageNames.forEach((name, index) => { const item = document.createElement('div'); item.className = 'gallery-item'; const img = document.createElement('img'); const imagePath = `${imageFolder}/${name}.${imageExtension}`; img.src = imagePath; img.alt = `Фото ${index + 1}`; img.dataset.index = index; img.onload = () => { img.classList.add('loaded'); loadedImagesCount++; if (loadedImagesCount === totalImages) { gridLoader.style.display = 'none'; } }; img.onerror = () => { console.error(`Не удалось загрузить: ${imagePath}`); item.style.display = 'none'; loadedImagesCount++; if (loadedImagesCount === totalImages) { gridLoader.style.display = 'none'; } }; img.addEventListener('click', () => { openModal(parseInt(img.dataset.index, 10)); }); item.appendChild(img); galleryGrid.appendChild(item); }); if (totalImages === 0) { gridLoader.style.display = 'none'; }
+            }
+            function openModal(index) { if (isNaN(index) || index < 0 || index >= imageNames.length) { console.error(`Неверный индекс: ${index}`); return; } currentIndex = index; updateModalImage(); modal.classList.add('active'); document.body.style.overflow = 'hidden'; startSlideshow(); }
+            function closeModal() { modal.classList.remove('active'); document.body.style.overflow = 'auto'; stopSlideshow(); setTimeout(() => { modalImage.src = ''; modalImage.alt = ''; }, 300); }
+            function updateModalImage() { if (imageNames.length === 0) return; currentIndex = (currentIndex + imageNames.length) % imageNames.length; const newImageName = imageNames[currentIndex]; const newImagePath = `${imageFolder}/${newImageName}.${imageExtension}`; modalImage.style.opacity = 0; const tempImg = new Image(); tempImg.onload = () => { modalImage.src = newImagePath; modalImage.alt = `Фото ${currentIndex + 1}`; setTimeout(() => { modalImage.style.opacity = 1; }, 50); }; tempImg.onerror = () => { console.error(`Не удалось загрузить для модального окна: ${newImagePath}`); modalImage.alt = `Ошибка загрузки: ${newImageName}.${imageExtension}`; modalImage.src = ''; modalImage.style.opacity = 1; }; tempImg.src = newImagePath; }
+            function showNextImage() { currentIndex = (currentIndex + 1) % imageNames.length; updateModalImage(); resetSlideshowTimer(); } function showPrevImage() { currentIndex = (currentIndex - 1 + imageNames.length) % imageNames.length; updateModalImage(); resetSlideshowTimer(); } function startSlideshow() { stopSlideshow(); if (slideshowDelay > 0) { slideshowInterval = setInterval(showNextImage, slideshowDelay); } } function stopSlideshow() { if (slideshowInterval) { clearInterval(slideshowInterval); slideshowInterval = null; } } function resetSlideshowTimer() { if (slideshowInterval || slideshowDelay <= 0) { stopSlideshow(); startSlideshow(); } }
+            closeModalBtn.addEventListener('click', closeModal); prevArea.addEventListener('click', showPrevImage); nextArea.addEventListener('click', showNextImage); modal.addEventListener('click', (event) => { if (event.target === modal) { closeModal(); } }); document.addEventListener('keydown', (event) => { if (modal.classList.contains('active')) { if (event.key === 'ArrowRight' || event.key === 'Right') { showNextImage(); } else if (event.key === 'ArrowLeft' || event.key === 'Left') { showPrevImage(); } else if (event.key === 'Escape' || event.key === 'Esc') { closeModal(); } } });
+            generateImageNames(); populateGallery();
+        });
+    </script>
+
+</body>
+</html>
